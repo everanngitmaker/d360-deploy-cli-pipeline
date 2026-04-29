@@ -1,0 +1,10 @@
+# Ignore retrieved metadata — never commit org-specific files to this repo
+force-app/main/default/**/*
+!force-app/main/default/**/.gitkeep
+
+# Ignore manifests dropped in locally
+manifests/*.xml
+!manifests/.gitkeep
+
+# macOS
+.DS_Store
