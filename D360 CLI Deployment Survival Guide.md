@@ -28,28 +28,33 @@ Before running any pipeline commands, make sure the following are installed and 
 **Tools:**
 
 **Salesforce CLI (`sf`)** — the command-line tool for connecting to Salesforce orgs, retrieving metadata, and deploying changes. This is what does the actual work of pulling components out of dev and pushing them into stage and prod.
+
 ```bash
 npm install -g @salesforce/cli
 sf --version
 ```
 
 **GitHub CLI (`gh`)** — lets you interact with GitHub from the terminal: create pull requests, merge them, and manage branches without opening a browser.
+
 ```bash
 brew install gh      # macOS
 gh --version
 ```
 
 **Git** — tracks every change to your metadata files and manages branches. Comes pre-installed on macOS.
+
 ```bash
 git --version
 ```
 
 **Python 3** — used by the pipeline scripts to preprocess manifests before retrieve and deploy (stripping unsupported metadata types, removing KQ_ fields, etc.). Comes pre-installed on macOS.
+
 ```bash
 python3 --version
 ```
 
 **Authentication:**
+
 ```bash
 # Authenticate GitHub
 gh auth login
@@ -64,6 +69,7 @@ sf org list
 ```
 
 **Repo setup (first time only):**
+
 ```bash
 # Clone the repo and move into it
 gh repo clone <org>/<repo-name>
@@ -136,13 +142,13 @@ Working with this pipeline means keeping three things in sync: your **local mach
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        SALESFORCE ORGS                              │
 │                                                                     │
-│   ┌─────────────┐     ┌─────────────┐     ┌─────────────┐          │
-│   │   dev org   │     │  stage org  │     │  prod org   │          │
-│   │             │     │             │     │             │          │
-│   │  where you  │     │  validation │     │  live       │          │
-│   │  build &    │     │  environment│     │  environment│          │
-│   │  test       │     │             │     │             │          │
-│   └──────┬──────┘     └──────▲──────┘     └──────▲──────┘          │
+│   ┌─────────────┐     ┌─────────────┐     ┌─────────────┐           │
+│   │   dev org   │     │  stage org  │     │  prod org   │           │
+│   │             │     │             │     │             │           │
+│   │  where you  │     │  validation │     │  live       │           │
+│   │  build &    │     │  environment│     │  environment│           │
+│   │  test       │     │             │     │             │           │
+│   └──────┬──────┘     └──────▲──────┘     └──────▲──────┘           │
 │          │                   │                   │                  │
 │     sf project          sf project           sf project             │
 │     retrieve start      deploy start         deploy start           │
@@ -153,13 +159,13 @@ Working with this pipeline means keeping three things in sync: your **local mach
 │                     YOUR LOCAL MACHINE                              │
 │                                                                     │
 │   ┌──────────────────────────────────────────────────────┐          │
-│   │  Local Git Repository  (the folder on your laptop)  │          │
+│   │  Local Git Repository  (the folder on your laptop)   │          │
 │   │                                                      │          │
-│   │   feature/oneidphone  ◄── you work here              │          │
+│   │   feature/xyz  ◄── you work here                     │          │
 │   │   dev                                                │          │
 │   │   stage                                              │          │
 │   │   prod                ◄── production baseline        │          │
-│   └────────────────┬────────────────────────────────────┘          │
+│   └────────────────┬──────────────────────────────────-──┘          │
 └────────────────────┼────────────────────────────────────────────────┘
                      │
                 git push / git pull
@@ -171,7 +177,7 @@ Working with this pipeline means keeping three things in sync: your **local mach
 │   ┌──────────────────────────────────────────────────────┐          │
 │   │  Remote Git Repository  (the cloud copy)             │          │
 │   │                                                      │          │
-│   │   feature/oneidphone                                 │          │
+│   │   feature/xyz                                        │          │
 │   │   dev                                                │          │
 │   │   stage                                              │          │
 │   │   prod                                               │          │
@@ -383,11 +389,13 @@ gh pr merge <PR#> --merge
 
 The three pipeline scripts wrap the raw CLI commands with safety checks, preprocessing, and Git operations:
 
+
 | Script                                               | Usage    | What it does                                                                                                                                                                                                                                                  |
 | ---------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `./scripts/1-retrieve.sh <org-alias> "<commit-msg>"` | Retrieve | Clears stale data kit folders, strips unsupported metadata types from the manifest, retrieves all components from the target org, commits and pushes to GitHub                                                                                                |
 | `./scripts/2-pr.sh <source-branch> <target-branch>`  | Promote  | Enforces `PROMOTION_ORDER` from `pipeline.config` (blocks merging to a later environment if a preceding one is not yet merged), then creates the GitHub PR                                                                                                    |
 | `./scripts/3-deploy.sh <org-alias> [--dry-run]`      | Deploy   | Pulls latest from GitHub, strips unsupported types, removes KQ_ fields, checks for orphaned manifest members, syncs CustomField members, then deploys. Prompts for `yes` confirmation when deploying to prod. Pass `--dry-run` to validate without deploying. |
+
 
 ### Pipeline Configuration
 
