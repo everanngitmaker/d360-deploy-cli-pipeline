@@ -215,11 +215,26 @@ git checkout <env-branch> && git pull
 ./scripts/3-deploy.sh <org-alias-for-env>
 ```
 
-After the deploy script succeeds, **stop and ask the user**:
+After the deploy script succeeds, **scan the deployed metadata for Calculated Insights before giving the user UI instructions**:
 
+1. Check `force-app/main/default/dataCalcInsightTemplates/` for any `*.dataCalcInsightTemplate-meta.xml` files.
+2. For each CI found, read its `<expression>` and look for `__cio` references — these indicate a dependency on another CI.
+3. Build a dependency order: CIs with no `__cio` references deploy first; CIs that reference another CI's `__cio` deploy after that CI is published.
+
+Then **stop and give the user sequenced UI instructions**:
+
+If no CI dependencies:
 > "Deployment to \<org-alias\> is done. Now go to **Data Cloud Setup → Data Kits → Deploy** in that org to activate the data streams. Let me know when that's done — and also re-add any KQ assignments via **Data Cloud Setup → Data Lake Objects** if needed."
 
-**Do not proceed to the next environment until the user confirms** the Data Kit has been deployed in the UI.
+If CI dependencies exist (example: ci_test1 must precede ci_test2):
+> "Deployment to \<org-alias\> is done. There are Calculated Insight dependencies — you must publish them in order:
+> 1. Go to **Data Cloud Setup → Data Kits → \<base-kit\> → Deploy**, then publish **\<base CI name\>**. Let me know when it finishes publishing.
+> _(wait for confirmation)_
+> 2. Then go to **Data Cloud Setup → Data Kits → \<dependent-kit\> → Deploy**, then publish **\<dependent CI name\>**."
+
+**Do not proceed to the next step until the user confirms each publish is complete.**
+
+**Do not proceed to the next environment until the user confirms** all Data Kit deploys in the UI are done.
 
 ---
 
