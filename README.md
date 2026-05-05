@@ -102,6 +102,20 @@ The `.claude/skills/` directory contains two skills for use with [Claude Code](h
 
 Claude Code automatically loads skills from `.claude/skills/` when you open the repo. No installation needed.
 
+## Known limitations
+
+### Calculated Insights with dependencies (untested)
+
+> ⚠️ This has not been tested yet.
+
+Calculated Insights require their schema to be established before dependent objects can be deployed. If one Calculated Insight is built on top of another:
+
+1. The **base** Calculated Insight must be **deployed** and **published** in the target org before the dependent one can be deployed.
+2. Publishing happens manually: **Data Cloud Setup → Calculated Insights → Publish**.
+3. To avoid deployment failures, put the two Calculated Insights in **separate Data Kits** and deploy them in order — base kit first, then the dependent kit.
+
+If you try to deploy both in the same Data Kit or in the wrong order, the deployment of the dependent Calculated Insight will fail because its base schema doesn't exist yet.
+
 ## Requirements
 
 - [Salesforce CLI](https://developer.salesforce.com/tools/salesforcecli) (`sf`)
