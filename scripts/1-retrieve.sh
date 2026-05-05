@@ -32,6 +32,10 @@ fi
 
 echo "Found ${#MANIFEST_FILES[@]} manifest(s) in manifests/"
 
+# Delete SF source tracking state — this pipeline is manifest-driven and never
+# relies on tracking. Stale tracking causes "Could not find HEAD" retrieve errors.
+rm -rf "$PROJECT_ROOT/.sf"
+
 # Clear data kit folders before retrieving so stale entries inherited from
 # the parent branch don't persist alongside the new feature.
 echo ""
@@ -42,24 +46,24 @@ rm -rf "$METADATA_DIR/DataPackageKitObjects"
 mkdir -p "$METADATA_DIR/DataPackageKitObjects"
 echo "✓ Cleared."
 
-# Reset source tracking before retrieve so stale baselines don't cause false conflicts
-echo ""
-echo "Resetting source tracking for $SOURCE_ORG..."
-sf project reset tracking --target-org "$SOURCE_ORG" --no-prompt
-echo "✓ Source tracking reset."
-
-# Retrieve from source org for each manifest
+# Retrieve from source org for each manifest.
+# Each retrieve runs in a clean temp dir outside the repo so SF CLI starts fresh
+# with no source tracking state for every manifest.
 for MANIFEST in "${MANIFEST_FILES[@]}"; do
   echo ""
   echo "Retrieving using $(basename $MANIFEST) from $SOURCE_ORG..."
 
-  # Strip ExtDataTranFieldTemplate before retrieve (unsupported by Metadata API)
-  MANIFEST_BACKUP=$(mktemp -t package-xml-backup)
-  cp "$MANIFEST" "$MANIFEST_BACKUP"
+  TMPDIR=$(mktemp -d)
+  cp "$PROJECT_ROOT/sfdx-project.json" "$TMPDIR/"
+  mkdir -p "$TMPDIR/force-app/main/default"
 
+  WORK_MANIFEST="$TMPDIR/$(basename $MANIFEST)"
+  cp "$MANIFEST" "$WORK_MANIFEST"
+
+  # Strip ExtDataTranFieldTemplate before retrieve (unsupported by Metadata API)
   python3 -c "
 import re
-file = '$MANIFEST'
+file = '$WORK_MANIFEST'
 content = open(file).read()
 content = re.sub(
     r'\n?\s*<types>(?:(?!</types>)[\s\S])*?<name>[Ee]xtDataTranFieldTemplate</name>(?:(?!</types>)[\s\S])*?</types>',
@@ -68,30 +72,32 @@ open(file, 'w').write(content)
 "
   if [ $? -ne 0 ]; then
     echo "ERROR: Failed to strip unsupported types from $(basename $MANIFEST)"
-    cp "$MANIFEST_BACKUP" "$MANIFEST"
-    rm -f "$MANIFEST_BACKUP"
+    rm -rf "$TMPDIR"
     exit 1
   fi
 
-  sf project retrieve start \
-    --manifest "$MANIFEST" \
+  (cd "$TMPDIR" && sf project retrieve start \
+    --manifest "$(basename $MANIFEST)" \
     --target-org "$SOURCE_ORG" \
-    --wait 30 < /dev/null
+    --wait 30 < /dev/null)
 
   RETRIEVE_STATUS=$?
-
-  # Restore manifest immediately after retrieve
-  cp "$MANIFEST_BACKUP" "$MANIFEST"
-  rm -f "$MANIFEST_BACKUP"
 
   if [ $RETRIEVE_STATUS -ne 0 ]; then
     echo ""
     echo "ERROR: Retrieve failed using $(basename $MANIFEST)"
     echo "→ Check that $SOURCE_ORG is authenticated: sf org list"
     echo "→ Check that the manifest is valid and the Data Kit is published in $SOURCE_ORG"
+    rm -rf "$TMPDIR"
     exit 1
   fi
 
+  # Copy retrieved metadata back into the repo
+  if [ -d "$TMPDIR/force-app/main/default" ]; then
+    cp -R "$TMPDIR/force-app/main/default/." "$METADATA_DIR/"
+  fi
+
+  rm -rf "$TMPDIR"
   echo "✓ Retrieve successful for $(basename $MANIFEST)"
 done
 

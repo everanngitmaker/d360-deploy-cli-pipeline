@@ -270,40 +270,42 @@ PYEOF
 done
 echo "✓ DataPackageKitObject check complete."
 
-# Deploy using first manifest (all metadata is already on disk from retrieve)
-# We use the first manifest as the deploy manifest; metadata files cover all kits.
-DEPLOY_MANIFEST="${MANIFEST_FILES[0]}"
-echo ""
-if [ "$DRY_RUN" == "--dry-run" ]; then
-  echo "Validating deployment to $TARGET_ORG (dry run)..."
-  sf project deploy start \
-    --manifest "$DEPLOY_MANIFEST" \
-    --target-org "$TARGET_ORG" \
-    --dry-run \
-    --wait 30 < /dev/null
-else
-  echo "Deploying Data Cloud metadata to $TARGET_ORG..."
-  sf project deploy start \
-    --manifest "$DEPLOY_MANIFEST" \
-    --target-org "$TARGET_ORG" \
-    --wait 30 < /dev/null
-fi
+# Deploy each manifest separately — deploying multiple manifests in a single call
+# causes Salesforce to silently skip all but the first kit (observed with DataCalcInsightTemplate).
+for DEPLOY_MANIFEST in "${MANIFEST_FILES[@]}"; do
+  echo ""
+  if [ "$DRY_RUN" == "--dry-run" ]; then
+    echo "Validating $(basename $DEPLOY_MANIFEST) against $TARGET_ORG (dry run)..."
+    sf project deploy start \
+      --manifest "$DEPLOY_MANIFEST" \
+      --target-org "$TARGET_ORG" \
+      --dry-run \
+      --wait 30 < /dev/null
+  else
+    echo "Deploying $(basename $DEPLOY_MANIFEST) to $TARGET_ORG..."
+    sf project deploy start \
+      --manifest "$DEPLOY_MANIFEST" \
+      --target-org "$TARGET_ORG" \
+      --wait 30 < /dev/null
+  fi
 
-DEPLOY_STATUS=$?
+  DEPLOY_STATUS=$?
+
+  if [ $DEPLOY_STATUS -ne 0 ]; then
+    echo ""
+    echo "ERROR: Deploy of $(basename $DEPLOY_MANIFEST) to $TARGET_ORG failed."
+    echo "→ Check that $TARGET_ORG is authenticated: sf org list"
+    echo "→ Review deployment errors above for specific component failures"
+    restore_manifests
+    exit 1
+  fi
+done
 
 # Restore all manifests
 echo ""
 echo "Restoring manifests to original state..."
 restore_manifests
 echo "✓ Manifests restored."
-
-if [ $DEPLOY_STATUS -ne 0 ]; then
-  echo ""
-  echo "ERROR: Deploy to $TARGET_ORG failed."
-  echo "→ Check that $TARGET_ORG is authenticated: sf org list"
-  echo "→ Review deployment errors above for specific component failures"
-  exit 1
-fi
 
 echo ""
 if [ "$DRY_RUN" == "--dry-run" ]; then
