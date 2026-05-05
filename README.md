@@ -104,17 +104,16 @@ Claude Code automatically loads skills from `.claude/skills/` when you open the 
 
 ## Known limitations
 
-### Calculated Insights with dependencies (untested)
+### Calculated Insights with dependencies
 
-> ⚠️ This has not been tested yet.
+**Metadata deployment (`3-deploy.sh`) is not affected** — both Calculated Insights can be deployed together in a single run regardless of dependency order. Salesforce handles it internally.
 
-Calculated Insights require their schema to be established before dependent objects can be deployed. If one Calculated Insight is built on top of another:
+The dependency only matters for the **Data Kit deploy** (the manual UI step). If one Calculated Insight references another via `__cio`, the base must be deployed and published in the Data Cloud UI before you trigger the Data Kit deploy for the dependent one:
 
-1. The **base** Calculated Insight must be **deployed** and **published** in the target org before the dependent one can be deployed.
-2. Publishing happens manually: **Data Cloud Setup → Calculated Insights → Publish**.
-3. To avoid deployment failures, put the two Calculated Insights in **separate Data Kits** and deploy them in order — base kit first, then the dependent kit.
+1. In **Data Cloud Setup → Data Kits**, deploy and publish the base Calculated Insight's kit first.
+2. Once published (schema established), deploy and publish the dependent kit.
 
-If you try to deploy both in the same Data Kit or in the wrong order, the deployment of the dependent Calculated Insight will fail because its base schema doesn't exist yet.
+Put the two Calculated Insights in **separate Data Kits** so you can control the publish order in the UI.
 
 ## Requirements
 
