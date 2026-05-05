@@ -8,11 +8,17 @@ A Git-based deployment pipeline for Salesforce Data Cloud metadata using the Sal
 ├── scripts/
 │   ├── 1-retrieve.sh       # retrieve metadata from dev org, commit, push
 │   ├── 2-pr.sh             # create PR, enforce promotion order
-│   └── 3-deploy.sh         # preprocess metadata, deploy to target org
+│   ├── 3-deploy.sh         # preprocess metadata, deploy to target org
+│   ├── 4-compare.sh        # detect drift between orgs or branches
+│   └── diff_report.py      # generates HTML drift report (called by 4-compare.sh)
 ├── config/
-│   └── pipeline.config     # defines your promotion order (PROMOTION_ORDER=dev,stage,prod)
+│   └── pipeline.config     # defines your promotion order and org→branch map
 ├── manifests/              # drop your package.xml here before each deployment
 ├── force-app/              # metadata retrieved from your orgs lives here (gitignored)
+├── .claude/
+│   └── skills/
+│       ├── d360-deploy.md      # Claude skill: deployment and pipeline workflow
+│       └── d360-org-diff.md    # Claude skill: drift detection between orgs/branches
 └── D360_CLI_DEPLOYMENT_GUIDE.md
 ```
 
@@ -40,6 +46,7 @@ See **[D360_CLI_DEPLOYMENT_GUIDE.md](./D360_CLI_DEPLOYMENT_GUIDE.md)** for the f
 2. Update `config/pipeline.config` with your environments:
    ```
    PROMOTION_ORDER=dev,stage,prod
+   ORG_BRANCH_MAP="<dev-alias>:dev,<stage-alias>:stage,<prod-alias>:prod"
    ```
 
 3. Authenticate your Salesforce orgs:
@@ -62,6 +69,38 @@ See **[D360_CLI_DEPLOYMENT_GUIDE.md](./D360_CLI_DEPLOYMENT_GUIDE.md)** for the f
 ```
 
 After each deploy, go to **Data Cloud Setup → Data Kits → Deploy** in the target org to activate data streams.
+
+## Drift detection
+
+`4-compare.sh` compares metadata between orgs or branches to detect drift and backlogs. Three modes:
+
+```bash
+# Did anyone change the org directly, bypassing the pipeline?
+./scripts/4-compare.sh org-vs-branch <org-alias>
+
+# What's deployed in one org but not promoted to the next yet?
+./scripts/4-compare.sh org-vs-org <org-a> <org-b>
+
+# What's merged to one branch but not the other yet?
+./scripts/4-compare.sh branch-vs-branch <branch-a> <branch-b>
+```
+
+Each run produces a terminal summary and an HTML report saved to `reports/` (gitignored). Add your org→branch mapping to `config/pipeline.config`:
+
+```
+ORG_BRANCH_MAP="<dev-alias>:dev,<stage-alias>:stage,<prod-alias>:prod"
+```
+
+## Claude skills
+
+The `.claude/skills/` directory contains two skills for use with [Claude Code](https://claude.ai/code):
+
+| Skill | Trigger |
+|---|---|
+| `d360-deploy.md` | Deploying, retrieving, promoting changes, setting up a new pipeline |
+| `d360-org-diff.md` | Comparing orgs or branches, investigating drift |
+
+Claude Code automatically loads skills from `.claude/skills/` when you open the repo. No installation needed.
 
 ## Requirements
 
