@@ -101,6 +101,13 @@ case "$CHOICE" in
     fi
     echo "✓ PR merged: $SOURCE_BRANCH → $TARGET_BRANCH"
 
+    # Pull merged changes into local target branch
+    CURRENT_BRANCH=$(git -C "$PROJECT_ROOT" rev-parse --abbrev-ref HEAD)
+    git -C "$PROJECT_ROOT" checkout "$TARGET_BRANCH"
+    git -C "$PROJECT_ROOT" pull
+    git -C "$PROJECT_ROOT" checkout "$CURRENT_BRANCH"
+    echo "✓ Local $TARGET_BRANCH updated."
+
     # After merging to the last branch in the promotion order, offer to delete the feature branch
     LAST_BRANCH=$(grep '^PROMOTION_ORDER=' "$PIPELINE_CONFIG" 2>/dev/null | cut -d'=' -f2 | tr ',' '\n' | tail -1)
     if [[ "$SOURCE_BRANCH" == feature/* ]] && [ "$TARGET_BRANCH" == "$LAST_BRANCH" ]; then

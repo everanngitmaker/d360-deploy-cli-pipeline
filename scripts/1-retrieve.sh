@@ -42,6 +42,12 @@ rm -rf "$METADATA_DIR/DataPackageKitObjects"
 mkdir -p "$METADATA_DIR/DataPackageKitObjects"
 echo "✓ Cleared."
 
+# Reset source tracking before retrieve so stale baselines don't cause false conflicts
+echo ""
+echo "Resetting source tracking for $SOURCE_ORG..."
+sf project reset tracking --target-org "$SOURCE_ORG" --no-prompt
+echo "✓ Source tracking reset."
+
 # Retrieve from source org for each manifest
 for MANIFEST in "${MANIFEST_FILES[@]}"; do
   echo ""
