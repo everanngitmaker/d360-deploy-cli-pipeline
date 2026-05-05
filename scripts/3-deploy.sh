@@ -270,6 +270,68 @@ PYEOF
 done
 echo "✓ DataPackageKitObject check complete."
 
+# Pre-deploy conflict check — retrieve org snapshot and compare against local.
+# Detects real conflicts (local differs from org = potential manual change) vs
+# fake conflicts (org has component but matches local = harmless, caused by no tracking state).
+# Aborts if real conflicts are found; passes through with --ignore-conflicts if not.
+echo ""
+echo "Checking for real conflicts in $TARGET_ORG..."
+CONFLICT_CHECK_TMPDIR=$(mktemp -d -t predeploy-check-XXXX)
+cp "$PROJECT_ROOT/sfdx-project.json" "$CONFLICT_CHECK_TMPDIR/"
+mkdir -p "$CONFLICT_CHECK_TMPDIR/force-app/main/default"
+
+for MANIFEST in "${MANIFEST_FILES[@]}"; do
+  MANIFEST_NAME=$(basename "$MANIFEST")
+  WORK_MANIFEST="$CONFLICT_CHECK_TMPDIR/$MANIFEST_NAME"
+  cp "$MANIFEST" "$WORK_MANIFEST"
+
+  python3 -c "
+import re
+file = '$WORK_MANIFEST'
+content = open(file).read()
+for pattern in ['[Ee]xtDataTranFieldTemplate', 'DataPackageKitDefinition', 'DataPackageKitObject', 'DataKitObjectTemplate', 'DataKitObjectDependency', 'DataStreamTemplate']:
+    content = re.sub(
+        r'\n?\s*<types>(?:(?!</types>)[\s\S])*?<name>' + pattern + r'</name>(?:(?!</types>)[\s\S])*?</types>',
+        '', content)
+open(file, 'w').write(content)
+"
+  if [ $? -ne 0 ]; then
+    echo "ERROR: Failed to preprocess manifest for conflict check."
+    rm -rf "$CONFLICT_CHECK_TMPDIR"
+    restore_manifests
+    exit 1
+  fi
+
+  (cd "$CONFLICT_CHECK_TMPDIR" && sf project retrieve start \
+    --manifest "$MANIFEST_NAME" \
+    --target-org "$TARGET_ORG" \
+    --wait 30 < /dev/null) > /dev/null 2>&1
+  if [ $? -ne 0 ]; then
+    echo "ERROR: Retrieve from $TARGET_ORG failed during conflict check."
+    echo "→ Check that $TARGET_ORG is authenticated: sf org list"
+    rm -rf "$CONFLICT_CHECK_TMPDIR"
+    restore_manifests
+    exit 1
+  fi
+done
+
+# Strip KQ_ fields from snapshot (they're stripped from local before deploy too)
+find "$CONFLICT_CHECK_TMPDIR/force-app" -path "*/fields/KQ_*.field-meta.xml" -delete 2>/dev/null
+
+python3 "$PROJECT_ROOT/scripts/pre_deploy_check.py" \
+  "$PROJECT_ROOT" "$CONFLICT_CHECK_TMPDIR" "$MANIFESTS_DIR" "$TARGET_ORG"
+CONFLICT_STATUS=$?
+rm -rf "$CONFLICT_CHECK_TMPDIR"
+
+if [ $CONFLICT_STATUS -ne 0 ]; then
+  echo ""
+  echo "ERROR: Real conflicts detected — deploy aborted."
+  echo "→ Review the differences above, then run: ./scripts/4-compare.sh org-vs-branch $TARGET_ORG"
+  restore_manifests
+  exit 1
+fi
+echo "✓ No real conflicts — safe to deploy."
+
 # Deploy each manifest separately — deploying multiple manifests in a single call
 # causes Salesforce to silently skip all but the first kit (observed with DataCalcInsightTemplate).
 for DEPLOY_MANIFEST in "${MANIFEST_FILES[@]}"; do
@@ -280,12 +342,14 @@ for DEPLOY_MANIFEST in "${MANIFEST_FILES[@]}"; do
       --manifest "$DEPLOY_MANIFEST" \
       --target-org "$TARGET_ORG" \
       --dry-run \
+      --ignore-conflicts \
       --wait 30 < /dev/null
   else
     echo "Deploying $(basename $DEPLOY_MANIFEST) to $TARGET_ORG..."
     sf project deploy start \
       --manifest "$DEPLOY_MANIFEST" \
       --target-org "$TARGET_ORG" \
+      --ignore-conflicts \
       --wait 30 < /dev/null
   fi
 

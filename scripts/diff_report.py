@@ -28,6 +28,7 @@ TYPE_TO_FILE = {
     'DataSourceObject':           ('dataSourceObjects',           '.dataSourceObject-meta.xml'),
     'DataSrcDataModelFieldMap':   ('dataSrcDataModelFieldMaps',   '.dataSrcDataModelFieldMap-meta.xml'),
     'ExtDataTranObjectTemplate':  ('extDataTranObjectTemplates',  '.extDataTranObjectTemplate-meta.xml'),
+    'FieldSrcTrgtRelationship':   ('fieldSrcTrgtRelationships',   '.fieldSrcTrgtRelationship-meta.xml'),
 }
 
 
