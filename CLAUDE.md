@@ -16,6 +16,7 @@ ORG_BRANCH_MAP="<your-dev-alias>:dev,<your-stage-alias>:stage,<your-prod-alias>:
 ```
 
 One branch per environment. The last branch in `PROMOTION_ORDER` is production. Feature branches are cut from the prod branch.
+Both keys live in `config/pipeline.config`.
 
 ## Promotion workflow
 
@@ -27,6 +28,7 @@ One branch per environment. The last branch in `PROMOTION_ORDER` is production. 
    git checkout stage && git pull && ./scripts/3-deploy.sh <stage-alias>
 5. ./scripts/2-pr.sh feature/name prod   → gh pr merge <#> --merge
    git checkout prod && git pull && echo "yes" | ./scripts/3-deploy.sh <prod-alias>
+   # Dry run: ./scripts/3-deploy.sh <prod-alias> --dry-run  (runs preflight checks, no actual deploy)
 6. git branch -d feature/name && git push origin --delete feature/name
 ```
 
@@ -84,3 +86,5 @@ One branch per environment. The last branch in `PROMOTION_ORDER` is production. 
 ```
 
 Outputs an HTML report in `reports/` (gitignored), auto-opened in browser.
+
+**Known gap:** org-side destructive changes (e.g. manually deleting a field map in the UI) are NOT detected — Data Cloud's published Data Kit state still references them.
