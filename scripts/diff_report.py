@@ -121,7 +121,7 @@ def read_text(root_dir, rel):
 def decode_field_map(left_dir, right_dir, rel):
     """For DataSrcDataModelFieldMap files, read the XML to extract source and target
     fields so we can show a human-readable form alongside the encoded name.
-    Returns a string like "oneid_address_F4952E5B.City → Address_Extended_Search__dlm.City__c"
+    Returns a string like "contact_address_F4952E5B.City → Address_Extended_Search__dlm.City__c"
     or an empty string if the info can't be extracted."""
     if 'dataSrcDataModelFieldMaps' not in rel:
         return ''
